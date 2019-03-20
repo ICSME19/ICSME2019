@@ -1,6 +1,6 @@
-# MSR'19
+# ICSME2019
 
-This repository contains the data used in the paper sublitted at MSR 2019 entitled ["An longitudinal analysis of bug triaging and bug resolution across Eclipse releases"].
+This repository contains the data used in the paper sublitted at ICSME 2019 entitled ["An longitudinal analysis of bug triaging and bug resolution across Eclipse releases"].
 
 
 ## Structure
