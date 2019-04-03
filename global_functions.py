@@ -1,5 +1,7 @@
 import pandas as pd
 import os
+from scipy import stats
+
 
 def assign_to_closest_minor(version):
     version = str(version)
@@ -185,9 +187,35 @@ def reverse_month(value):
     return value
 
 def attach_severity_priority_to_dataframe(df):
-    sev_info = pd.read_csv('.'+os.sep+'data'+os.sep+'bugs_full.csv',index_col=False,
+    sev_info = pd.read_csv('.'+os.sep+'data'+os.sep+'bugs_full.zip',compression='zip',index_col=False,
                       dtype={'version':str})
     sev_info = sev_info[['id','severity','priority']]
 
     df = pd.merge(df,sev_info,on=['id'],how='left')
     return df
+
+def compare_distributions(tt,var1,var2):
+    normal_test_var1 = stats.kstest(tt[var1].values.tolist(), 'norm')
+    normal_test_var2 = stats.kstest(tt[var2].values.tolist(), 'norm')
+
+    #not normal distribution
+    if normal_test_var1.pvalue<0.05 or normal_test_var2.pvalue<0.05:
+        print('At least one sample not normally distributed')
+        #wilkoxon
+        wresult = stats.ranksums(tt[var1].values.tolist(), tt[var2].values.tolist())
+
+        if wresult.pvalue<0.05:
+            print('Statistically significant difference found')
+        else:
+            print('Statistically significant difference NOT found')
+        print(wresult)
+    else:
+        print('Both samples are normally distributed')
+        #t-test
+        tresult = stats.ttest_rel(tt[var1].values.tolist(), tt[var2].values.tolist())
+
+        if tresult.pvalue<0.05:
+            print('Statistically significant difference found')
+        else:
+            print('Statistically significant difference NOT found')
+        print(tresult)
