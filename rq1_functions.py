@@ -11,7 +11,7 @@ from lifelines import KaplanMeierFitter
 
 from global_functions import *
 
-def get_general_statistics_per_relase(df_w,assignedFirst,resolvedFirst,fixedFirst):
+def get_general_statistics_per_relase(df_w,relase_creation_ts_all,assignedFirst,resolvedFirst,fixedFirst):
     #Calculate general stastics per release
     df_ret=pd.DataFrame()
     df_w['release'] = df_w['release'].astype(str)
@@ -119,7 +119,7 @@ def get_general_statistics_per_relase(df_w,assignedFirst,resolvedFirst,fixedFirs
                          ignore_index=True)
     return df_ret
 
-def get_monthly_stats(df_work,assignedFirst,resolvedFirst,fixedFirst):
+def get_monthly_stats(df_work,relase_creation_ts_all,assignedFirst,resolvedFirst,fixedFirst):
     df_work = trans_to_datetime(df_work,['creation_time','first_assignment_date',
        'last_assignment_date', 'first_resolved_date', 'last_resolved_date',
        'first_fixed_date', 'last_fixed_date'])

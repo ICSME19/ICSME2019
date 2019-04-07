@@ -2,7 +2,6 @@ import pandas as pd
 import os
 from scipy import stats
 
-
 def assign_to_closest_minor(version):
     version = str(version)
     parts = version.split('.')
@@ -29,6 +28,22 @@ def is_larger_release(rel1,rel2):
         return False
 
     if rel1[1]>rel2[1]:
+        return True
+    return False
+
+def is_smaller_release(rel1,rel2):
+    if rel1 is None or rel2 is None:
+        return False
+    rel1 = str(rel1)
+    rel2 = str(rel2)
+    rel1 = tuple(int(i) for i in rel1.split('.'))
+    rel2 = tuple(int(i) for i in rel2.split('.'))
+    if rel1[0]<rel2[0]:
+        return True
+    elif rel1[0]>rel2[0]:
+        return False
+
+    if rel1[1]<rel2[1]:
         return True
     return False
 
@@ -194,28 +209,153 @@ def attach_severity_priority_to_dataframe(df):
     df = pd.merge(df,sev_info,on=['id'],how='left')
     return df
 
-def compare_distributions(tt,var1,var2):
-    normal_test_var1 = stats.kstest(tt[var1].values.tolist(), 'norm')
-    normal_test_var2 = stats.kstest(tt[var2].values.tolist(), 'norm')
+def compare_distributions(tt,var1,var2,are_samples_independent):
+    values_list_1 = tt[var1].values.tolist()
+    values_list_2 = tt[var2].values.tolist()
+    normal_test_var1 = stats.kstest(values_list_1, 'norm')
+    normal_test_var2 = stats.kstest(values_list_2, 'norm')
 
     #not normal distribution
     if normal_test_var1.pvalue<0.05 or normal_test_var2.pvalue<0.05:
         print('At least one sample not normally distributed')
-        #wilkoxon
-        wresult = stats.ranksums(tt[var1].values.tolist(), tt[var2].values.tolist())
 
-        if wresult.pvalue<0.05:
-            print('Statistically significant difference found')
+        if are_samples_independent==True:
+            print('MANN WHITNEY U')
+            #use mann whitney
+            mu_result = stats.mannwhitneyu(values_list_1, values_list_2)
+
+            pval = mu_result.pvalue
+
+            if pval<0.05:
+                print('Statistically significant difference found')
+            else:
+                print('Statistically significant difference NOT found')
+            print(mu_result)
         else:
-            print('Statistically significant difference NOT found')
-        print(wresult)
+            #use  wilkoxon
+            print('WILCOXON RANK SUMS')
+            wresult = stats.ranksums(values_list_1, values_list_2)
+
+            pval = wresult.pvalue
+            if pval<0.05:
+                print('Statistically significant difference found')
+            else:
+                print('Statistically significant difference NOT found')
+            print(wresult)
+        if pval<0.05:
+            effect_size, effect_cat = cliffsDelta(values_list_1, values_list_2)
+            print(effect_size)
+            print(effect_cat)
+
     else:
         print('Both samples are normally distributed')
+        print('TTEST')
         #t-test
-        tresult = stats.ttest_rel(tt[var1].values.tolist(), tt[var2].values.tolist())
+        tresult = stats.ttest_rel(values_list_1, values_list_2)
 
         if tresult.pvalue<0.05:
             print('Statistically significant difference found')
+            effect_size, effect_cat = cliffsDelta(values_list_1, values_list_2)
+            print(effect_size)
+            print(effect_cat)
         else:
             print('Statistically significant difference NOT found')
         print(tresult)
+
+def compare_distributions_uneven_samples(values_list_1,values_list_2,are_samples_independent=True):
+    normal_test_var1 = stats.kstest(values_list_1, 'norm')
+    normal_test_var2 = stats.kstest(values_list_2, 'norm')
+
+    #not normal distribution
+    if normal_test_var1.pvalue<0.05 or normal_test_var2.pvalue<0.05:
+        print('At least one sample not normally distributed')
+
+        if are_samples_independent==True:
+            print('MANN WHITNEY U')
+            #use mann whitney
+            mu_result = stats.mannwhitneyu(values_list_1, values_list_2)
+
+            pval = mu_result.pvalue
+
+            if pval<0.05:
+                print('Statistically significant difference found')
+            else:
+                print('Statistically significant difference NOT found')
+            print(mu_result)
+        else:
+            #use  wilkoxon
+            print('WILCOXON RANK SUMS')
+            wresult = stats.ranksums(values_list_1, values_list_2)
+
+            pval = wresult.pvalue
+            if pval<0.05:
+                print('Statistically significant difference found')
+            else:
+                print('Statistically significant difference NOT found')
+            print(wresult)
+        if pval<0.05:
+            effect_size, effect_cat = cliffsDelta(values_list_1, values_list_2)
+            print(effect_size)
+            print(effect_cat)
+
+    else:
+        print('Both samples are normally distributed')
+        print('TTEST')
+        #t-test
+        tresult = stats.ttest_rel(values_list_1, values_list_2)
+
+        if tresult.pvalue<0.05:
+            print('Statistically significant difference found')
+            effect_size, effect_cat = cliffsDelta(values_list_1, values_list_2)
+            print(effect_size)
+            print(effect_cat)
+        else:
+            print('Statistically significant difference NOT found')
+        print(tresult)
+
+def cliffsDelta(lst1, lst2, **dull):
+
+    """Returns delta and true if there are more than 'dull' differences"""
+    if not dull:
+        dull = {'small': 0.147, 'medium': 0.33, 'large': 0.474} # effect sizes from (Hess and Kromrey, 2004)
+    m, n = len(lst1), len(lst2)
+    lst2 = sorted(lst2)
+    j = more = less = 0
+    for repeats, x in runs(sorted(lst1)):
+        while j <= (n - 1) and lst2[j] < x:
+            j += 1
+        more += j*repeats
+        while j <= (n - 1) and lst2[j] == x:
+            j += 1
+        less += (n - j)*repeats
+    d = (more - less) / (m*n)
+    size = lookup_size(d, dull)
+    return d, size
+
+
+def lookup_size(delta: float, dull: dict) -> str:
+    """
+    :type delta: float
+    :type dull: dict, a dictionary of small, medium, large thresholds.
+    """
+    delta = abs(delta)
+    if delta < dull['small']:
+        return 'negligible'
+    if dull['small'] <= delta < dull['medium']:
+        return 'small'
+    if dull['medium'] <= delta < dull['large']:
+        return 'medium'
+    if delta >= dull['large']:
+        return 'large'
+
+
+def runs(lst):
+    """Iterator, chunks repeated values"""
+    for j, two in enumerate(lst):
+        if j == 0:
+            one, i = two, 0
+        if one != two:
+            yield j - i, one
+            i = j
+        one = two
+    yield j - i + 1, two
